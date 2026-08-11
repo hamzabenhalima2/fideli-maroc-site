@@ -238,6 +238,27 @@
   let shopId = null;
   let GOAL = DEFAULT_GOAL;
   let currentPhone = null;
+  const shopCodes = JSON.parse(localStorage.getItem('fideli_shop_codes') || '{}');
+
+  function saveShopCodes(){
+    localStorage.setItem('fideli_shop_codes', JSON.stringify(shopCodes));
+  }
+
+  // Récupère (ou demande) le code d'accès du commerce sélectionné, et le vérifie auprès du serveur
+  async function getVerifiedShopCode(id){
+    let code = shopCodes[id];
+    if(code){
+      const check = await api(`/shops/${id}/verify-code`, { method:'POST', body: JSON.stringify({ code }) });
+      if(check.valid) return code;
+    }
+    code = prompt("Code d'accès de ce commerce :");
+    if(!code) return null;
+    const check = await api(`/shops/${id}/verify-code`, { method:'POST', body: JSON.stringify({ code }) });
+    if(!check.valid){ showToast("Code d'accès incorrect"); return null; }
+    shopCodes[id] = code;
+    saveShopCodes();
+    return code;
+  }
 
   function initials(phone){
     return phone.slice(-2);
@@ -247,10 +268,10 @@
     return shops.find(s => s.id === shopId);
   }
 
-  async function api(path, options){
+  async function api(path, options={}){
     const res = await fetch(API_URL + path, {
-      headers: { 'Content-Type': 'application/json' },
-      ...options
+      ...options,
+      headers: { 'Content-Type': 'application/json', ...(options.headers||{}) },
     });
     if(!res.ok){
       const err = await res.json().catch(()=>({error:'Erreur serveur'}));
@@ -290,19 +311,30 @@
     const name = document.getElementById('newShopName').value.trim();
     const goalVal = parseInt(document.getElementById('newShopGoal').value, 10) || DEFAULT_GOAL;
     if(!name){ showToast("Entrez un nom de commerce"); return; }
+    const adminKey = prompt("Mot de passe administrateur :");
+    if(!adminKey){ showToast("Création annulée"); return; }
     try{
-      const shop = await api('/shops', { method:'POST', body: JSON.stringify({ name, pointsGoal: goalVal }) });
+      const shop = await api('/shops', {
+        method:'POST',
+        headers: { 'x-admin-key': adminKey },
+        body: JSON.stringify({ name, pointsGoal: goalVal })
+      });
       showToast(`Commerce "${shop.name}" créé !`);
       document.getElementById('newShopName').value = '';
       document.getElementById('newShopGoal').value = '5';
       await loadShops();
       shopId = shop.id;
       GOAL = shop.points_goal || DEFAULT_GOAL;
+      shopCodes[shop.id] = shop.access_code;
+      saveShopCodes();
       populateShopSelect();
       document.getElementById('shopSelect').value = shopId;
       document.getElementById('newShopResult').innerHTML = `
-        <div class="reward-note" style="margin-top:16px;">
-          ✅ "${shop.name}" est prêt. Bascule sur "Espace Commerçant" pour commencer à créditer des points.
+        <div class="reward-note" style="margin-top:16px; text-align:left;">
+          ✅ "${shop.name}" est prêt.<br><br>
+          <strong>Code d'accès de ce commerce (à donner uniquement au commerçant) :</strong><br>
+          <span style="font-family:monospace; font-size:16px; background:#fff; padding:4px 10px; border-radius:6px; display:inline-block; margin-top:6px;">${shop.access_code}</span><br><br>
+          Note-le bien, il ne sera plus jamais réaffiché.
         </div>`;
     }catch(e){
       showToast(e.message);
@@ -388,10 +420,16 @@
     const val = document.getElementById('merchantPhoneInput').value.trim();
     if(!val){ showToast("Entrez un numéro de client"); return; }
     if(!shopId){ showToast("Serveur indisponible, réessayez"); return; }
+    const code = await getVerifiedShopCode(shopId);
+    if(!code) return;
     try{
       // Le client doit exister avant de recevoir un point (simule le scan initial du QR)
       await api('/clients', { method:'POST', body: JSON.stringify({ phone: val, shopId }) });
-      const updated = await api(`/clients/${encodeURIComponent(val)}/stamp`, { method:'POST', body: JSON.stringify({ shopId }) });
+      const updated = await api(`/clients/${encodeURIComponent(val)}/stamp`, {
+        method:'POST',
+        headers: { 'x-shop-code': code },
+        body: JSON.stringify({ shopId })
+      });
       document.getElementById('merchantPhoneInput').value = '';
       showToast("Point ajouté pour "+val);
       renderMerchant();
@@ -405,9 +443,17 @@
     if(!shopId) return;
     const list = document.getElementById('clientList');
     list.innerHTML = `<div class="empty">Chargement…</div>`;
+    const code = await getVerifiedShopCode(shopId);
+    if(!code){
+      list.innerHTML = `<div class="empty">Code d'accès requis pour voir ce commerce.</div>`;
+      document.getElementById('statClients').textContent = '—';
+      document.getElementById('statStamps').textContent = '—';
+      document.getElementById('statRewards').textContent = '—';
+      return;
+    }
     let clients;
     try{
-      clients = await api(`/shops/${shopId}/clients`);
+      clients = await api(`/shops/${shopId}/clients`, { headers: { 'x-shop-code': code } });
     }catch(e){
       list.innerHTML = `<div class="empty">Impossible de charger les clients.</div>`;
       return;
@@ -445,8 +491,14 @@
   }
 
   async function quickAdd(phone){
+    const code = await getVerifiedShopCode(shopId);
+    if(!code) return;
     try{
-      const updated = await api(`/clients/${encodeURIComponent(phone)}/stamp`, { method:'POST', body: JSON.stringify({ shopId }) });
+      const updated = await api(`/clients/${encodeURIComponent(phone)}/stamp`, {
+        method:'POST',
+        headers: { 'x-shop-code': code },
+        body: JSON.stringify({ shopId })
+      });
       showToast("Point ajouté pour "+phone);
       renderMerchant();
       if(currentPhone === phone) renderCard(updated, true);
