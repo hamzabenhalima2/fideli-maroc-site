@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fideli — Carte de fidélité</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --zellige: #1B4B66;
+    --zellige-deep: #0E2F40;
+    --brass: #C9A227;
+    --cream: #FAF6EC;
+    --clay: #A63D40;
+    --ink: #1A1A1A;
+    --line: rgba(27,75,102,0.14);
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{
+    font-family:'Space Grotesk', sans-serif;
+    background: var(--cream);
+    color: var(--ink);
+    min-height:100vh;
+    display:flex; align-items:flex-start; justify-content:center;
+    padding: 32px 16px 60px;
+  }
+  .app{ width:100%; max-width: 420px; }
+  .topbar{
+    display:flex; align-items:center; justify-content:center;
+    margin-bottom: 28px;
+  }
+  .brand{
+    font-family:'Fraunces', serif;
+    font-weight:700;
+    font-size: 26px;
+    letter-spacing: -0.01em;
+    color: var(--zellige-deep);
+  }
+  .brand span{ color: var(--brass); }
+
+  .card-shell{
+    background:#fff;
+    border-radius: 24px;
+    padding: 26px 22px;
+    min-height: 420px;
+    box-shadow: 0 24px 50px -20px rgba(14,47,64,0.25);
+    border: 1px solid var(--line);
+  }
+
+  .entry-form{ text-align:center; padding: 12px 0; }
+  .entry-form h2{ font-family:'Fraunces', serif; font-size: 21px; margin-bottom:6px; color:var(--zellige-deep); }
+  .entry-form p{ font-size: 13.5px; color:#6b7280; margin-bottom: 24px; line-height:1.5; }
+  .shop-badge{
+    display:inline-block; padding:6px 14px; border-radius:999px; background:#F3EEDF;
+    color: var(--zellige-deep); font-size:12.5px; font-weight:600; margin-bottom:18px;
+  }
+
+  input[type=tel], input[type=text]{
+    width:100%; padding: 13px 14px; border-radius: 10px; border:1.5px solid var(--line);
+    font-family:'Space Grotesk'; font-size:16px; margin-bottom:12px; outline:none;
+  }
+  input[type=tel]:focus, input[type=text]:focus{ border-color: var(--zellige); }
+  .btn{
+    display:inline-block; border:none; cursor:pointer;
+    font-family:'Space Grotesk'; font-weight:600; font-size:15px;
+    padding: 14px 24px; border-radius: 10px;
+    background: var(--zellige); color:#fff;
+    transition: transform .15s ease, background .2s ease;
+  }
+  .btn:hover{ background: var(--zellige-deep); }
+  .btn:active{ transform: scale(0.97); }
+  .btn.full{ width:100%; }
+  .btn.brass{ background: var(--brass); color: var(--zellige-deep); }
+  .btn.ghost{ background:transparent; border:1.5px solid var(--line); color:var(--zellige-deep); }
+
+  .loyalty-card{
+    background: linear-gradient(135deg, var(--zellige) 0%, var(--zellige-deep) 100%);
+    border-radius: 18px;
+    padding: 22px;
+    color: #fff;
+    position: relative;
+    overflow: hidden;
+  }
+  .loyalty-card::before{
+    content:''; position:absolute; top:-40px; right:-40px; width:140px; height:140px;
+    background: radial-gradient(circle, rgba(201,162,39,0.35), transparent 70%);
+  }
+  .loyalty-card .shop-name{ font-family:'Fraunces', serif; font-size:19px; font-weight:600; position:relative; z-index:1; }
+  .loyalty-card .client-name{ font-size:12px; opacity:0.75; margin-top:2px; position:relative; z-index:1; }
+  .stamps{ display:grid; grid-template-columns: repeat(5, 1fr); gap:10px; margin: 22px 0 8px; position:relative; z-index:1; }
+  .stamp{
+    aspect-ratio:1; border-radius:50%; border:2px dashed rgba(255,255,255,0.4);
+    display:flex; align-items:center; justify-content:center; font-size:16px;
+    transition: all .35s ease;
+  }
+  .stamp.filled{
+    background: var(--brass); border: 2px solid var(--brass); color: var(--zellige-deep);
+    transform: scale(1.05);
+  }
+  .stamp.new{ animation: pop .5s ease; }
+  @keyframes pop{ 0%{transform:scale(0);} 60%{transform:scale(1.25);} 100%{transform:scale(1.05);} }
+  .card-footer{ display:flex; justify-content:space-between; align-items:center; margin-top:14px; font-size:12px; opacity:0.85; position:relative; z-index:1;}
+  .reward-note{ margin-top:16px; padding:10px 12px; background:#F3EEDF; border-radius:10px; font-size:12.5px; color:var(--zellige-deep); text-align:center; }
+
+  .error-box{ text-align:center; padding: 40px 10px; }
+  .error-box h2{ font-family:'Fraunces', serif; font-size:19px; color:var(--zellige-deep); margin-bottom:8px; }
+  .error-box p{ font-size:13.5px; color:#6b7280; line-height:1.6; }
+
+  .toast{
+    position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(20px);
+    background: var(--zellige-deep); color:#fff; padding: 12px 20px; border-radius: 10px;
+    font-size:13px; opacity:0; transition: all .35s ease; pointer-events:none; z-index:100;
+    max-width: 90vw; text-align:center;
+  }
+  .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <div class="topbar">
+    <div class="brand">Fideli<span>·</span>Maroc</div>
+  </div>
+  <div class="card-shell" id="cardShell">
+    <!-- injecté par JS -->
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  const API_URL = "https://fideli-maroc-backend-production.up.railway.app";
+  const DEFAULT_GOAL = 5;
+
+  let shop = null;
+  let GOAL = DEFAULT_GOAL;
+  let currentPhone = null;
+
+  // Récupère le slug du commerce depuis l'URL, ex: client.html?shop=patisserie-palais
+  const params = new URLSearchParams(window.location.search);
+  const shopSlug = (params.get('shop') || '').trim();
+
+  async function api(path, options={}){
+    const res = await fetch(API_URL + path, {
+      ...options,
+      headers: { 'Content-Type': 'application/json', ...(options.headers||{}) },
+    });
+    if(!res.ok){
+      const err = await res.json().catch(()=>({error:'Erreur serveur'}));
+      throw new Error(err.error || 'Erreur serveur');
+    }
+    return res.json();
+  }
+
+  function showToast(msg){
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(()=>t.classList.remove('show'), 2400);
+  }
+
+  function renderMissingShop(){
+    document.getElementById('cardShell').innerHTML = `
+      <div class="error-box">
+        <h2>Lien invalide</h2>
+        <p>Ce lien ne correspond à aucun commerce Fideli.<br>Demandez au commerçant de vous transmettre le bon lien ou QR code.</p>
+      </div>
+    `;
+  }
+
+  function renderEntry(){
+    const screen = document.getElementById('cardShell');
+    screen.innerHTML = `
+      <div class="entry-form">
+        <div class="shop-badge">${shop.name}</div>
+        <h2>Rejoignez le programme</h2>
+        <p>Entrez votre numéro de téléphone pour ouvrir votre carte de fidélité digitale.</p>
+        <input type="tel" id="clientPhoneInput" placeholder="Votre n° de téléphone" inputmode="tel">
+        <button class="btn full brass" onclick="openCard()">Ouvrir ma carte</button>
+      </div>
+    `;
+  }
+
+  async function openCard(){
+    const val = document.getElementById('clientPhoneInput').value.trim();
+    if(!val){ showToast("Entrez un numéro de téléphone"); return; }
+    try{
+      const client = await api('/clients', { method:'POST', body: JSON.stringify({ phone: val, shopId: shop.id }) });
+      currentPhone = val;
+      renderCard(client);
+    }catch(e){
+      showToast(e.message);
+    }
+  }
+
+  function renderCard(client, justAdded){
+    const screen = document.getElementById('cardShell');
+    const filled = client.stamps % GOAL;
+    let stampsHtml = '';
+    for(let i=0;i<GOAL;i++){
+      const isFilled = i < filled;
+      const isNew = justAdded && i === filled-1;
+      stampsHtml += `<div class="stamp ${isFilled?'filled':''} ${isNew?'new':''}">${isFilled?'★':''}</div>`;
+    }
+    screen.innerHTML = `
+      <div class="loyalty-card">
+        <div class="shop-name">${shop.name}</div>
+        <div class="client-name">${client.name} · ${client.phone}</div>
+        <div class="stamps">${stampsHtml}</div>
+        <div class="card-footer">
+          <span>${filled}/${GOAL} points</span>
+          <span>Total: ${client.stamps}</span>
+        </div>
+      </div>
+      <div class="reward-note">
+        ${filled === 0 && client.stamps>0 ? "🎉 Récompense débloquée à votre prochain achat !" : `Encore ${GOAL - filled} point(s) avant votre cadeau.`}
+      </div>
+      <button class="btn full brass" style="margin-top:16px" onclick="addToGoogleWallet('${client.phone}')">📲 Ajouter à Google Wallet</button>
+      <button class="btn ghost full" style="margin-top:10px" onclick="renderEntry()">← Changer de numéro</button>
+    `;
+  }
+
+  async function addToGoogleWallet(phone){
+    try{
+      const { url } = await api(`/clients/${encodeURIComponent(phone)}/wallet-link?shopId=${shop.id}`);
+      window.open(url, '_blank');
+    }catch(e){
+      showToast(e.message);
+    }
+  }
+
+  async function init(){
+    if(!shopSlug){
+      renderMissingShop();
+      return;
+    }
+    try{
+      shop = await api(`/shops/by-slug/${encodeURIComponent(shopSlug)}`);
+      GOAL = shop.points_goal || DEFAULT_GOAL;
+      renderEntry();
+    }catch(e){
+      renderMissingShop();
+    }
+  }
+
+  init();
+</script>
+
+</body>
+</html>
